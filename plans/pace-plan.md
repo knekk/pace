@@ -172,22 +172,25 @@ All modules, styles, tests, README, LICENSE and icon are written. Remaining work
 
 ### Fixes found in review
 
-- [ ] `main.js` `buildWheels()`: hours wheel is `0–9`; marathon at 15:59/km is `11:14:25`.
+- [x] `main.js` `buildWheels()`: hours wheel is `0–9`; marathon at 15:59/km is `11:14:25`.
       Use `rangeItems(0, 11)`.
-- [ ] `wheel.js` `rowHeight`: `offsetHeight` can be `0` before layout → `NaN` index.
+- [x] `wheel.js` `rowHeight`: `offsetHeight` can be `0` before layout → `NaN` index.
       Return `first.offsetHeight || 56`.
-- [ ] `main.js` `renderChips()`: `scrollIntoView` can scroll the page vertically on load.
+- [x] `main.js` `renderChips()`: `scrollIntoView` can scroll the page vertically on load.
       Centre the active chip with `wrap.scrollLeft` instead.
-- [ ] `wheel.js` `setValue()`: don't issue an instant `scrollTo` when the wheel is already
-      animating towards the same index (keeps click/keyboard scrolls smooth).
+- [ ] (nice‑to‑have) `wheel.js` `setValue()`: skip the instant `scrollTo` when the wheel is
+      already animating towards the same index. `scrollToIndex` already skips when
+      `scrollTop` is within 0.5 px, and `setValue` from state is a no‑op for the wheel that
+      triggered the change, so this is cosmetic only.
 
 ### Verification
 
-- [ ] `node --test test/pace.test.mjs` passes.
-- [ ] Manual check in browser (`npx serve -l 8000`): pace ↔ speed ↔ time linking,
-      km/mi toggle, NO/EN toggle, URL params, table click selects distance, mobile layout.
+- [x] `node --test test/pace.test.mjs` passes (8/8).
+- [ ] Manual check in browser: pace ↔ speed ↔ time linking, km/mi toggle, NO/EN toggle,
+      URL params, table click selects distance, mobile layout.
 
 ### Deploy
 
-- [ ] `git init`, commit, `gh repo create knekk/pace --public --source=. --push`,
-      enable Pages via `gh api`, confirm `https://knekk.github.io/pace/` responds.
+- [x] `git init -b main`, first commit `d384570`.
+- [x] `gh repo create knekk/pace --public --source=. --remote=origin --push`.
+- [x] Pages enabled via `gh api` (branch `main`, path `/`) → `https://knekk.github.io/pace/`.
