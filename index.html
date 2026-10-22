@@ -4,10 +4,38 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0b0d10">
+  <meta name="color-scheme" content="dark">
   <meta name="description" content="Pace-kalkulator: min/km ↔ km/t ↔ sluttid for 400 m til maraton.">
   <title>Pace</title>
+
+  <!-- Home-screen / installable (no service worker, no storage beyond localStorage) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pace">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/icon-192.png" type="image/png" sizes="192x192">
+
   <link rel="stylesheet" href="css/style.css">
+
+  <!-- Device detection before first paint (feature detection only; nothing is stored or sent). -->
+  <script>
+    (function () {
+      var d = document.documentElement.dataset;
+      var ua = navigator.userAgent || '';
+      var tp = navigator.maxTouchPoints || 0;
+      var coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+      var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && tp > 1);
+      var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+      var shortSide = Math.min(screen.width || 0, screen.height || 0) || window.innerWidth;
+      d.device = !coarse ? 'desktop' : shortSide <= 600 ? 'phone' : 'tablet';
+      if (ios) d.ios = '';
+      if (coarse || tp > 0) d.touch = '';
+      if (standalone) d.standalone = '';
+    })();
+  </script>
 </head>
 <body>
 
@@ -29,6 +57,13 @@
         <button type="button" class="seg-btn is-active" data-lang="nb" aria-pressed="true">NO</button>
         <button type="button" class="seg-btn" data-lang="en" aria-pressed="false">EN</button>
       </div>
+      <button type="button" class="icon-btn" id="share-btn" data-i18n-title="shareTitle" data-i18n-aria="shareTitle" aria-label="Del denne pacen">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span data-i18n="share">Del</span>
+      </button>
     </div>
   </header>
 
@@ -87,6 +122,25 @@
           <span class="unit-label" id="time-dist-label">10 km</span>
         </header>
         <div class="chips" id="dist-chips" role="radiogroup" data-i18n-aria="distance" aria-label="Distanse"></div>
+
+        <!-- Custom distance (shown when the "custom" chip is active) -->
+        <div class="custom" id="custom-panel" hidden>
+          <form class="custom-field" id="custom-form" novalidate>
+            <label class="custom-label" for="custom-input" data-i18n="customDistance">Egen distanse</label>
+            <div class="custom-row">
+              <input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done"
+                     id="custom-input" class="custom-input num" data-i18n-placeholder="customPlaceholder" placeholder="f.eks. 6300">
+              <button type="submit" class="custom-ok" id="custom-ok" data-i18n="done">OK</button>
+            </div>
+          </form>
+          <div class="seg seg-small" role="group" id="custom-unit">
+            <button type="button" class="seg-btn is-active" data-dunit="m" aria-pressed="true">m</button>
+            <button type="button" class="seg-btn" data-dunit="km" aria-pressed="false">km</button>
+            <button type="button" class="seg-btn" data-dunit="mi" aria-pressed="false">mi</button>
+          </div>
+          <p class="custom-hint" data-i18n="customHint">F.eks. en stafett-etappe.</p>
+        </div>
+
         <div class="picker">
           <div class="picker-row">
             <div id="wheel-time-h"></div>
@@ -107,6 +161,8 @@
 
     </section>
 
+    <p class="hint" data-i18n="tapHint">Rull, eller trykk på tallet for å skrive.</p>
+
     <section class="times">
       <h2 class="times-title" data-i18n="times">Tider på denne pacen</h2>
       <div id="times-grid" class="times-grid"></div>
@@ -116,8 +172,11 @@
 
   <footer class="footer">
     <p data-i18n="shareHint">Lenken i adressefeltet husker verdiene dine.</p>
-    <p data-i18n="footer">Laget for løpere. Ingen sporing, ingen innlogging.</p>
+    <p class="install-hint" data-i18n="installHint">Tips: Del → «Legg til på Hjem-skjerm» for å bruke Pace som en app.</p>
+    <p data-i18n="footer">Laget for løpere. Ingen sporing, ingen cookies, ingen innlogging.</p>
   </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="js/main.js"></script>
 </body>

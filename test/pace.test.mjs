@@ -10,7 +10,10 @@ import {
   parseTime, parseDecimal,
   PACE_MIN_SEC, PACE_MAX_SEC,
 } from '../js/pace.js';
-import { DISTANCES, getDistance } from '../js/distances.js';
+import {
+  DISTANCES, getDistance, isValidDistanceId, normaliseCustomMetres,
+  toMetres, fromMetres, formatDistance, CUSTOM_ID, CUSTOM_MIN_METRES, CUSTOM_MAX_METRES,
+} from '../js/distances.js';
 
 const near = (a, b, eps = 0.51) => assert.ok(Math.abs(a - b) <= eps, `${a} ≉ ${b}`);
 
@@ -91,8 +94,48 @@ test('parsing', () => {
 });
 
 test('distances table', () => {
-  assert.deepEqual(DISTANCES.map((d) => d.id), ['400', '800', '1k', '2k', '3k', '5k', '10k', 'hm', 'm']);
+  assert.deepEqual(
+    DISTANCES.map((d) => d.id),
+    ['400', '800', '1k', '1500', 'mi', '2k', '3k', '5k', '10k', 'hm', 'm'],
+  );
+  assert.equal(getDistance('1500').metres, 1500);
+  near(getDistance('mi').metres, 1609.344, 0.001);
   assert.equal(getDistance('hm').metres, 21097.5);
   assert.equal(getDistance('m').metres, 42195);
   assert.equal(getDistance('nope'), null);
+  assert.ok(isValidDistanceId(CUSTOM_ID));
+  assert.ok(isValidDistanceId('10k'));
+  assert.ok(!isValidDistanceId('nope'));
+});
+
+test('1500 m and mile at 4:00/km', () => {
+  assert.equal(formatTime(timeForDistance(240, 1500)), '6:00');
+  assert.equal(formatTime(timeForDistance(240, getDistance('mi').metres)), '6:26');
+});
+
+test('custom distance', () => {
+  assert.equal(toMetres(6300, 'm'), 6300);
+  assert.equal(toMetres(6.3, 'km'), 6300);
+  near(toMetres(1, 'mi'), 1609.344, 0.001);
+  near(fromMetres(6300, 'km'), 6.3, 1e-9);
+  near(fromMetres(1609.344, 'mi'), 1, 1e-9);
+
+  assert.equal(normaliseCustomMetres('6300'), 6300);
+  assert.equal(normaliseCustomMetres(6300.4), 6300);
+  assert.equal(normaliseCustomMetres(1), CUSTOM_MIN_METRES);
+  assert.equal(normaliseCustomMetres(1e9), CUSTOM_MAX_METRES);
+  assert.ok(Number.isNaN(normaliseCustomMetres('x')));
+  assert.ok(Number.isNaN(normaliseCustomMetres(0)));
+  assert.ok(Number.isNaN(normaliseCustomMetres(null)));
+
+  assert.equal(formatDistance(6300, 'km', 'nb'), '6,3 km');
+  assert.equal(formatDistance(6300, 'km', 'en'), '6.3 km');
+  assert.equal(formatDistance(850, 'km', 'en'), '850 m');
+  assert.equal(formatDistance(10000, 'km', 'en'), '10 km');
+  assert.equal(formatDistance(21097.5, 'km', 'en'), '21.098 km');
+  assert.equal(formatDistance(1609.344, 'mi', 'en'), '1 mi');
+  assert.equal(formatDistance(7500, 'mi', 'nb'), '4,66 mi');
+
+  // Relay leg: 6.3 km in 25:12 → 4:00/km
+  assert.equal(formatPace(paceFromTime(25 * 60 + 12, toMetres(6.3, 'km'))), '4:00');
 });

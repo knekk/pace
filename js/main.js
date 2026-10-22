@@ -7,11 +7,14 @@ import {
   SPEED_KMH_MIN, SPEED_KMH_MAX, SPEED_MPH_MIN, SPEED_MPH_MAX,
   paceInUnit, paceFromUnit, speedInUnit, paceFromSpeed,
   timeForDistance, paceFromTime, clampPace,
-  splitMs, splitHms, splitTenths, formatTime,
+  splitMs, splitHms, splitTenths, formatTime, formatPace, parseDecimal,
 } from './pace.js';
-import { DISTANCES, getDistance } from './distances.js';
+import {
+  DISTANCES, CUSTOM_ID, toMetres, fromMetres, formatDistance,
+} from './distances.js';
 import { t, setLang as applyLang } from './i18n.js';
 import { Wheel, rangeItems } from './wheel.js';
+import { applyDeviceAttributes } from './device.js';
 import * as store from './state.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -36,6 +39,11 @@ function speedRange(unit) {
     : { min: SPEED_KMH_MIN, max: SPEED_KMH_MAX };
 }
 
+/** Hours needed for the slowest pace over the selected distance (so the wheel fits any distance). */
+function maxHours() {
+  return Math.floor(timeForDistance(PACE_MAX_SEC, store.selectedMetres()) / 3600);
+}
+
 function buildWheels() {
   const { unit } = store.getState();
   const pr = paceRange(unit);
@@ -43,34 +51,33 @@ function buildWheels() {
 
   wheels.paceMin = new Wheel($('#wheel-pace-min'), {
     items: rangeItems(Math.floor(pr.min / 60), Math.floor(pr.max / 60)),
-    onChange: onPaceWheel,
+    onChange: onPaceWheel, maxDigits: 2, ariaLabel: t('minutes'),
   });
   wheels.paceSec = new Wheel($('#wheel-pace-sec'), {
     items: rangeItems(0, 59, 2),
-    onChange: onPaceWheel,
+    onChange: onPaceWheel, loop: true, maxDigits: 2, ariaLabel: t('seconds'),
   });
 
   wheels.speedInt = new Wheel($('#wheel-speed-int'), {
     items: rangeItems(Math.floor(sr.min), Math.floor(sr.max)),
-    onChange: onSpeedWheel,
+    onChange: onSpeedWheel, maxDigits: 2, ariaLabel: t('speed'),
   });
   wheels.speedTenth = new Wheel($('#wheel-speed-tenth'), {
     items: rangeItems(0, 9),
-    onChange: onSpeedWheel,
+    onChange: onSpeedWheel, loop: true, maxDigits: 1, ariaLabel: t('tenths'),
   });
 
-  // Marathon at the slowest pace (15:59/km) is 11:14:25, so hours go 0–11.
   wheels.timeH = new Wheel($('#wheel-time-h'), {
-    items: rangeItems(0, 11),
-    onChange: onTimeWheel,
+    items: rangeItems(0, maxHours()),
+    onChange: onTimeWheel, maxDigits: 2, ariaLabel: t('hours'),
   });
   wheels.timeM = new Wheel($('#wheel-time-m'), {
     items: rangeItems(0, 59, 2),
-    onChange: onTimeWheel,
+    onChange: onTimeWheel, loop: true, maxDigits: 2, ariaLabel: t('minutes'),
   });
   wheels.timeS = new Wheel($('#wheel-time-s'), {
     items: rangeItems(0, 59, 2),
-    onChange: onTimeWheel,
+    onChange: onTimeWheel, loop: true, maxDigits: 2, ariaLabel: t('seconds'),
   });
 }
 
@@ -81,6 +88,13 @@ function rebuildUnitWheels() {
   const sr = speedRange(unit);
   wheels.paceMin.setItems(rangeItems(Math.floor(pr.min / 60), Math.floor(pr.max / 60)), wheels.paceMin.value);
   wheels.speedInt.setItems(rangeItems(Math.floor(sr.min), Math.floor(sr.max)), wheels.speedInt.value);
+}
+
+/** Rebuild the hours wheel when the distance changes (0–2 for 10 km, 0–11 for a marathon…). */
+function rebuildHoursWheel() {
+  const max = maxHours();
+  if (wheels.timeH.items.length === max + 1) return;
+  wheels.timeH.setItems(rangeItems(0, max), wheels.timeH.value);
 }
 
 /* ---------- wheel -> state ---------- */
@@ -112,10 +126,8 @@ function onSpeedWheel() {
 }
 
 function onTimeWheel() {
-  const { distanceId } = store.getState();
   const total = wheels.timeH.value * 3600 + wheels.timeM.value * 60 + wheels.timeS.value;
-  const metres = getDistance(distanceId).metres;
-  const next = clampPace(paceFromTime(Math.max(1, total), metres));
+  const next = clampPace(paceFromTime(Math.max(1, total), store.selectedMetres()));
   if (next === store.getState().paceSec) {
     syncWheels();
   } else {
@@ -126,7 +138,7 @@ function onTimeWheel() {
 /* ---------- state -> wheels ---------- */
 
 function syncWheels() {
-  const { paceSec, unit, distanceId } = store.getState();
+  const { paceSec, unit } = store.getState();
 
   const p = splitMs(paceInUnit(paceSec, unit));
   wheels.paceMin.setValue(p.m);
@@ -136,7 +148,7 @@ function syncWheels() {
   wheels.speedInt.setValue(s.whole);
   wheels.speedTenth.setValue(s.tenth);
 
-  const tm = splitHms(timeForDistance(paceSec, getDistance(distanceId).metres));
+  const tm = splitHms(timeForDistance(paceSec, store.selectedMetres()));
   wheels.timeH.setValue(tm.h);
   wheels.timeM.setValue(tm.m);
   wheels.timeS.setValue(tm.s);
@@ -145,21 +157,42 @@ function syncWheels() {
 /* ---------- labels, chips, grid ---------- */
 
 function distLabel(d, lang) {
+  if (d.id === CUSTOM_ID) return t('custom');
   return d.label[lang] ?? d.label.nb;
 }
 
 function distSub(d, unit, lang) {
+  if (d.id === CUSTOM_ID) return formatDistance(store.getState().customMetres, unit, lang);
   return d.sub ? d.sub[unit][lang] : '';
 }
 
+function distTitle(d) {
+  switch (d.id) {
+    case 'hm': return t('halfMarathon');
+    case 'm': return t('marathon');
+    case 'mi': return t('mile');
+    case CUSTOM_ID: return t('customDistance');
+    default: return '';
+  }
+}
+
+/** All distances incl. the custom one, in display order. */
+function allDistances() {
+  return [...DISTANCES, { id: CUSTOM_ID }];
+}
+
 function renderLabels() {
-  const { unit, lang } = store.getState();
+  const { unit, lang, distanceId, customMetres } = store.getState();
   $('#pace-unit').textContent = unit === 'mi' ? t('perMi') : t('perKm');
   $('#speed-unit').textContent = unit === 'mi' ? t('mph') : t('kmh');
   $('#speed-sep').textContent = t('decimalSep');
-  const d = getDistance(store.getState().distanceId);
-  const sub = distSub(d, unit, lang);
-  $('#time-dist-label').textContent = sub ? `${distLabel(d, lang)} · ${sub}` : distLabel(d, lang);
+  if (distanceId === CUSTOM_ID) {
+    $('#time-dist-label').textContent = formatDistance(customMetres, unit, lang);
+  } else {
+    const d = allDistances().find((x) => x.id === distanceId);
+    const sub = distSub(d, unit, lang);
+    $('#time-dist-label').textContent = sub ? `${distLabel(d, lang)} · ${sub}` : distLabel(d, lang);
+  }
 }
 
 function renderToggles() {
@@ -180,15 +213,20 @@ function renderChips() {
   const { distanceId, lang } = store.getState();
   const wrap = $('#dist-chips');
   wrap.innerHTML = '';
-  DISTANCES.forEach((d) => {
+  allDistances().forEach((d) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'chip' + (d.id === distanceId ? ' is-active' : '');
+    b.className = 'chip' + (d.id === distanceId ? ' is-active' : '') + (d.id === CUSTOM_ID ? ' chip-custom' : '');
     b.dataset.dist = d.id;
     b.setAttribute('role', 'radio');
     b.setAttribute('aria-checked', d.id === distanceId ? 'true' : 'false');
-    b.textContent = distLabel(d, lang);
-    b.addEventListener('click', () => store.setDistanceId(d.id));
+    b.textContent = d.id === CUSTOM_ID ? `+ ${t('custom')}` : distLabel(d, lang);
+    const title = distTitle(d);
+    if (title) b.title = title;
+    b.addEventListener('click', () => {
+      store.setDistanceId(d.id);
+      if (d.id === CUSTOM_ID) focusCustomInput();
+    });
     wrap.appendChild(b);
   });
   const active = wrap.querySelector('.is-active');
@@ -199,15 +237,81 @@ function renderChips() {
   }
 }
 
-let gridBuilt = false;
+/* ---------- custom distance panel ---------- */
+
+let customUnit = 'm';          // 'm' | 'km' | 'mi' – the unit the user types in
+let customInputFocused = false;
+
+function formatCustomValue(metres) {
+  const v = fromMetres(metres, customUnit);
+  const digits = customUnit === 'm' ? 0 : 3;
+  const text = v.toFixed(digits).replace(/\.?0+$/, '');
+  return text.replace('.', t('decimalSep'));
+}
+
+function renderCustomPanel() {
+  const { distanceId, customMetres } = store.getState();
+  const panel = $('#custom-panel');
+  const show = distanceId === CUSTOM_ID;
+  panel.hidden = !show;
+  if (!show) return;
+  document.querySelectorAll('[data-dunit]').forEach((b) => {
+    const on = b.dataset.dunit === customUnit;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const input = $('#custom-input');
+  if (!customInputFocused) input.value = formatCustomValue(customMetres);
+}
+
+function commitCustomInput() {
+  const v = parseDecimal($('#custom-input').value);
+  if (!Number.isFinite(v) || v <= 0) return;
+  store.setCustomMetres(toMetres(v, customUnit));
+}
+
+function focusCustomInput() {
+  const input = $('#custom-input');
+  if (input && !input.closest('[hidden]')) {
+    input.focus({ preventScroll: true });
+    input.select();
+  }
+}
+
+function wireCustomPanel() {
+  const input = $('#custom-input');
+  input.addEventListener('focus', () => { customInputFocused = true; });
+  input.addEventListener('blur', () => {
+    customInputFocused = false;
+    commitCustomInput();
+    renderCustomPanel();
+  });
+  input.addEventListener('input', commitCustomInput);
+  // Enter / "Go" on a keyboard, or the OK button, submits the form.
+  // iOS's decimal keypad has no return key, so the OK button is the only way
+  // to explicitly confirm and dismiss the keyboard there.
+  $('#custom-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    commitCustomInput();
+    input.blur();
+  });
+  document.querySelectorAll('[data-dunit]').forEach((b) =>
+    b.addEventListener('click', () => {
+      customUnit = b.dataset.dunit;
+      customInputFocused = false;
+      renderCustomPanel();
+    }));
+}
+
+/* ---------- times grid ---------- */
 
 function buildGrid() {
   const grid = $('#times-grid');
   grid.innerHTML = '';
-  DISTANCES.forEach((d) => {
+  allDistances().forEach((d) => {
     const cell = document.createElement('button');
     cell.type = 'button';
-    cell.className = 'time-cell';
+    cell.className = 'time-cell' + (d.id === CUSTOM_ID ? ' is-custom' : '');
     cell.dataset.dist = d.id;
     cell.innerHTML = `
       <span class="time-dist"></span>
@@ -216,23 +320,20 @@ function buildGrid() {
     cell.addEventListener('click', () => store.setDistanceId(d.id));
     grid.appendChild(cell);
   });
-  gridBuilt = true;
 }
 
 function renderGrid(flash) {
-  if (!gridBuilt) buildGrid();
   const { paceSec, unit, lang, distanceId } = store.getState();
-  DISTANCES.forEach((d) => {
+  allDistances().forEach((d) => {
     const cell = $(`#times-grid [data-dist="${d.id}"]`);
     cell.classList.toggle('is-active', d.id === distanceId);
     cell.querySelector('.time-dist').textContent = distLabel(d, lang);
     const subEl = cell.querySelector('.time-sub');
     const sub = distSub(d, unit, lang);
     subEl.textContent = sub || '\u00a0';
-    const title = d.id === 'hm' ? t('halfMarathon') : d.id === 'm' ? t('marathon') : '';
-    cell.title = title;
+    cell.title = distTitle(d);
     const v = cell.querySelector('.time-value');
-    const txt = formatTime(timeForDistance(paceSec, d.metres));
+    const txt = formatTime(timeForDistance(paceSec, store.metresFor(d.id)));
     if (v.textContent !== txt) {
       v.textContent = txt;
       if (flash) {
@@ -242,6 +343,39 @@ function renderGrid(flash) {
       }
     }
   });
+}
+
+/* ---------- share ---------- */
+
+let toastTimer = null;
+
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('is-visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('is-visible'), 1800);
+}
+
+async function share() {
+  const { paceSec, unit } = store.getState();
+  const url = store.shareUrl();
+  const text = `${formatPace(paceInUnit(paceSec, unit))} ${unit === 'mi' ? t('perMi') : t('perKm')}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Pace', text, url });
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // user cancelled
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(t('copied'));
+  } catch {
+    // Last resort: let the user copy from the prompt.
+    window.prompt(t('shareTitle'), url);
+  }
 }
 
 /* ---------- state subscription ---------- */
@@ -256,9 +390,14 @@ function onState(state, changed) {
   }
   if (changed.distanceId) {
     renderChips();
+    rebuildHoursWheel();
+  }
+  if (changed.customMetres) {
+    rebuildHoursWheel();
   }
   renderToggles();
   renderLabels();
+  renderCustomPanel();
   syncWheels();
   renderGrid(Boolean(changed.paceSec));
 }
@@ -266,12 +405,17 @@ function onState(state, changed) {
 /* ---------- boot ---------- */
 
 function boot() {
+  applyDeviceAttributes();
   const state = store.load();
   applyLang(state.lang);
+  if (state.unit === 'mi') customUnit = 'mi';
   buildWheels();
+  buildGrid();
+  wireCustomPanel();
   renderToggles();
   renderLabels();
   renderChips();
+  renderCustomPanel();
   syncWheels();
   renderGrid(false);
 
@@ -279,11 +423,16 @@ function boot() {
     b.addEventListener('click', () => store.setUnit(b.dataset.unit)));
   document.querySelectorAll('[data-lang]').forEach((b) =>
     b.addEventListener('click', () => store.setLang(b.dataset.lang)));
+  $('#share-btn').addEventListener('click', share);
 
   store.subscribe(onState);
 
   // Re-align wheels after fonts load / orientation change (row height may shift).
-  window.addEventListener('resize', syncWheels);
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(syncWheels, 100);
+  });
   if (document.fonts?.ready) document.fonts.ready.then(syncWheels);
 }
 
