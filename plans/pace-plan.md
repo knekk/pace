@@ -185,12 +185,34 @@ All modules, styles, tests, README, LICENSE and icon are written. Remaining work
 
 ### Verification
 
-- [x] `node --test test/pace.test.mjs` passes (8/8).
-- [ ] Manual check in browser: pace ↔ speed ↔ time linking, km/mi toggle, NO/EN toggle,
-      URL params, table click selects distance, mobile layout.
+- [x] `node --test test/pace.test.mjs` passes (11/11).
+- [x] Manual check in browser: pace ↔ speed ↔ time linking, km/mi toggle, NO/EN toggle,
+      URL params, table click selects distance, mobile layout. Tested locally and on iPhone.
 
 ### Deploy
 
 - [x] `git init -b main`, first commit `d384570`.
 - [x] `gh repo create knekk/pace --public --source=. --remote=origin --push`.
 - [x] Pages enabled via `gh api` (branch `main`, path `/`) → `https://knekk.github.io/pace/`.
+
+## Status (2026‑10‑22)
+
+Shipped in `58fc7fb` and `373ec5b` (pushed to `main`, live on Pages):
+
+- [x] Custom distance (relay legs etc.): `+ Egen` chip, input with m / km / mi unit, stored in
+      state, `localStorage` and `?m=` URL param. Shown in the times grid and header.
+- [x] 1500 m and mile added to the distance list.
+- [x] PWA: `manifest.webmanifest`, 180/192/512 px icons (`scripts/make-icons.mjs`),
+      `js/device.js` device detection with iOS "Add to Home Screen" hint.
+- [x] Tap‑to‑type on wheels (centre row opens a numeric input).
+- [x] `scripts/serve.mjs` – dependency‑free local dev server (`node scripts/serve.mjs 8000`).
+- [x] iPhone: decimal keypad has no Enter key, so the custom field had no way to confirm.
+      Wrapped in a `<form>` with a visible **OK** submit button; Enter/Go still works.
+- [x] Bug: `/\.?0+$/` trimmed trailing zeros of integers, so typing `1450` m became `145`.
+      Replaced with `formatNumber()` in `distances.js` that only trims the fractional part.
+      Regression test added.
+- [x] `tmp/` (screenshots) added to `.gitignore`.
+
+Open:
+
+- [ ] (nice‑to‑have) `wheel.js` `setValue()` redundant `scrollTo` – cosmetic, see above.

@@ -7,8 +7,11 @@ Pace-kalkulator for løpere: **min/km ↔ km/t ↔ sluttid**.
 - Scroll minutter og sekunder på **pace** (f.eks. `4:00 min/km`) og se farten (`15,0 km/t`).
 - Scroll på **fart** og se pacen – begge veier er koblet sammen.
 - Velg en distanse og scroll en **sluttid** (f.eks. 10 km på `45:00`) for å få pacen (`4:30 min/km`).
-- Tider for **400 m, 800 m, 1 km, 2 km, 3 km, 5 km, 10 km, halvmaraton og maraton** på den
-  gjeldende pacen. Trykk på en distanse for å velge den i sluttid-kortet.
+- Tider for **400 m, 800 m, 1 km, 1500 m, engelsk mil, 2 km, 3 km, 5 km, 10 km, halvmaraton
+  og maraton** på den gjeldende pacen. Trykk på en distanse for å velge den i sluttid-kortet.
+- **Egen distanse** (f.eks. en stafett-etappe): trykk «+ Egen», skriv inn tallet i m, km
+  eller mi og trykk OK.
+- Kan legges til på Hjem-skjermen på mobil og brukes som en app.
 - Liten **km | mi**-bryter (km er standard) for `min/mile` og `mph`.
 - **NO | EN** for norsk (standard) eller engelsk.
 
@@ -25,7 +28,8 @@ Adressen oppdateres automatisk mens du bruker siden, så du kan dele eller bokme
 | `unit`    | `?unit=mi`      | `km` (standard) eller `mi`                               |
 | `pace`    | `?pace=4:30`    | pace i valgt enhet                                       |
 | `speed`   | `?speed=15`     | fart i valgt enhet (brukes hvis `pace` mangler)          |
-| `dist`    | `?dist=10k`     | valgt distanse: `400 800 1k 2k 3k 5k 10k hm m`           |
+| `dist`    | `?dist=10k`     | valgt distanse: `400 800 1k 1500 mi 2k 3k 5k 10k hm m custom` |
+| `m`       | `?m=6300`       | egen distanse i meter (brukes når `dist=custom`)         |
 | `time`    | `?time=45:00`   | sluttid på `dist` – setter pacen (vinner over `pace`)    |
 
 Eksempler:
@@ -33,6 +37,7 @@ Eksempler:
 - `https://knekk.github.io/pace/?pace=4:00`
 - `https://knekk.github.io/pace/?dist=hm&time=1:30:00`
 - `https://knekk.github.io/pace/?lang=en&unit=mi&speed=7.5`
+- `https://knekk.github.io/pace/?dist=custom&m=6300&time=25:12`
 
 ## Teknisk
 
@@ -52,9 +57,14 @@ pace/
 │   ├── state.js       # tilstand, localStorage og URL-parametre
 │   ├── pace.js        # ren matematikk (pace ↔ fart ↔ tid, formatering)
 │   ├── wheel.js       # gjenbrukbart scroll-hjul
-│   ├── distances.js   # distansene
+│   ├── distances.js   # distansene og egen distanse
+│   ├── device.js      # enkel enhetsdeteksjon (iOS-hint for Hjem-skjerm)
 │   └── i18n.js        # norske og engelske tekster
-├── assets/icon.svg
+├── assets/            # icon.svg + PNG-ikoner (180/192/512)
+├── manifest.webmanifest
+├── scripts/
+│   ├── serve.mjs      # liten lokal utviklingsserver
+│   └── make-icons.mjs # lager PNG-ikonene fra icon.svg
 ├── test/pace.test.mjs # node --test test/pace.test.mjs
 └── plans/pace-plan.md
 ```
@@ -65,10 +75,10 @@ Siden bruker ES-moduler, så den må serveres over HTTP:
 
 ```
 cd pace
-npx serve -l 8000
+node scripts/serve.mjs 8000
 ```
 
-(eller `python -m http.server 8000` hvis du har Python). Åpne <http://localhost:8000>.
+(eller `npx serve -l 8000` / `python -m http.server 8000`). Åpne <http://localhost:8000>.
 Alternativt: VS Code-utvidelsen «Live Server».
 
 ### Tester
