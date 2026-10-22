@@ -12,7 +12,8 @@ import {
 } from '../js/pace.js';
 import {
   DISTANCES, getDistance, isValidDistanceId, normaliseCustomMetres,
-  toMetres, fromMetres, formatDistance, CUSTOM_ID, CUSTOM_MIN_METRES, CUSTOM_MAX_METRES,
+  toMetres, fromMetres, formatDistance, formatNumber,
+  CUSTOM_ID, CUSTOM_MIN_METRES, CUSTOM_MAX_METRES,
 } from '../js/distances.js';
 
 const near = (a, b, eps = 0.51) => assert.ok(Math.abs(a - b) <= eps, `${a} ≉ ${b}`);
@@ -138,4 +139,23 @@ test('custom distance', () => {
 
   // Relay leg: 6.3 km in 25:12 → 4:00/km
   assert.equal(formatPace(paceFromTime(25 * 60 + 12, toMetres(6.3, 'km'))), '4:00');
+});
+
+test('formatNumber keeps trailing zeros of integers', () => {
+  // Regression: 1450 m used to be trimmed to "145" when shown with 0 decimals.
+  assert.equal(formatNumber(1450, 0), '1450');
+  assert.equal(formatNumber(1000, 0), '1000');
+  assert.equal(formatNumber(10, 0), '10');
+  assert.equal(formatNumber(0, 0), '0');
+  assert.equal(formatNumber(1450 / 1000, 3, ','), '1,45');
+  assert.equal(formatNumber(10, 3), '10');
+  assert.equal(formatNumber(10.5, 3, ','), '10,5');
+  assert.equal(formatNumber(0.1, 3), '0.1');
+  assert.equal(formatNumber(100.25, 2), '100.25');
+  // formatDistance on round-number distances
+  assert.equal(formatDistance(1450, 'km', 'en'), '1.45 km');
+  assert.equal(formatDistance(20000, 'km', 'en'), '20 km');
+  assert.equal(formatDistance(100000, 'km', 'nb'), '100 km');
+  assert.equal(formatDistance(500, 'km', 'en'), '500 m');
+  assert.equal(formatDistance(16093.44, 'mi', 'en'), '10 mi');
 });

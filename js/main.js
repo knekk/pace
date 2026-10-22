@@ -10,7 +10,7 @@ import {
   splitMs, splitHms, splitTenths, formatTime, formatPace, parseDecimal,
 } from './pace.js';
 import {
-  DISTANCES, CUSTOM_ID, toMetres, fromMetres, formatDistance,
+  DISTANCES, CUSTOM_ID, toMetres, fromMetres, formatDistance, formatNumber,
 } from './distances.js';
 import { t, setLang as applyLang } from './i18n.js';
 import { Wheel, rangeItems } from './wheel.js';
@@ -245,8 +245,7 @@ let customInputFocused = false;
 function formatCustomValue(metres) {
   const v = fromMetres(metres, customUnit);
   const digits = customUnit === 'm' ? 0 : 3;
-  const text = v.toFixed(digits).replace(/\.?0+$/, '');
-  return text.replace('.', t('decimalSep'));
+  return formatNumber(v, digits, t('decimalSep'));
 }
 
 function renderCustomPanel() {

@@ -78,6 +78,19 @@ export function fromMetres(metres, distUnit) {
 }
 
 /**
+ * Format a number with at most `digits` decimals, trailing zeros removed.
+ * Only the fractional part is trimmed, so 1450 stays "1450" (not "145").
+ * @param {number} value
+ * @param {number} digits
+ * @param {string} sep  decimal separator, e.g. ',' or '.'
+ */
+export function formatNumber(value, digits, sep = '.') {
+  let s = value.toFixed(digits);
+  if (s.includes('.')) s = s.replace(/0+$/, '').replace(/\.$/, '');
+  return s.replace('.', sep);
+}
+
+/**
  * Human label for an arbitrary distance, e.g. 7500 → "7,5 km" (nb) / "7.5 km" (en),
  * 6300 → "6,3 km", 850 → "850 m", unit mi → "4.66 mi".
  * @param {number} metres
@@ -86,10 +99,9 @@ export function fromMetres(metres, distUnit) {
  */
 export function formatDistance(metres, unit, lang) {
   const sep = lang === 'nb' ? ',' : '.';
-  const trim = (s) => s.replace(/\.?0+$/, '').replace('.', sep);
   if (unit === 'mi') {
-    return `${trim(fromMetres(metres, 'mi').toFixed(2))} mi`;
+    return `${formatNumber(fromMetres(metres, 'mi'), 2, sep)} mi`;
   }
   if (metres < 1000) return `${Math.round(metres)} m`;
-  return `${trim((metres / 1000).toFixed(3))} km`;
+  return `${formatNumber(metres / 1000, 3, sep)} km`;
 }
