@@ -87,6 +87,19 @@ Alternativt: VS Code-utvidelsen «Live Server».
 node --test test/pace.test.mjs
 ```
 
+### Publisere en ny versjon
+
+GitHub Pages cacher alle filer i 10 minutter, og nettlesere kan holde på gamle JS/CSS-filer
+lenger enn det. Alle ressursene i `index.html` har derfor en `?v=`-parameter (også
+ES-modul-importene, via et *import map*). Bump den før du committer:
+
+```
+node scripts/bump-version.mjs
+git commit -am "..." && git push
+```
+
+Da får brukerne alltid et komplett, matchende sett med filer uten å måtte tømme cache.
+
 ## Publisere på GitHub Pages
 
 1. Opprett et offentlig repo kalt `pace` på GitHub (bruker `knekk`).

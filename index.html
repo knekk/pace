@@ -18,7 +18,27 @@
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="icon" href="assets/icon-192.png" type="image/png" sizes="192x192">
 
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20261022-1532">
+
+  <!--
+    Cache busting. GitHub Pages serves everything with max-age=600 and no way to change it,
+    so CSS/JS could otherwise go stale independently and a new main.js could end up importing
+    an old distances.js (missing export → app fails to start). Every asset URL carries the
+    same ?v= token, and the import map applies it to the ES-module imports inside js/*.js.
+    Bump with: node scripts/bump-version.mjs
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "./js/pace.js":      "./js/pace.js?v=20261022-1532",
+      "./js/distances.js": "./js/distances.js?v=20261022-1532",
+      "./js/i18n.js":      "./js/i18n.js?v=20261022-1532",
+      "./js/wheel.js":     "./js/wheel.js?v=20261022-1532",
+      "./js/device.js":    "./js/device.js?v=20261022-1532",
+      "./js/state.js":     "./js/state.js?v=20261022-1532"
+    }
+  }
+  </script>
 
   <!-- Device detection before first paint (feature detection only; nothing is stored or sent). -->
   <script>
@@ -178,6 +198,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=20261022-1532"></script>
 </body>
 </html>

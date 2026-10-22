@@ -213,6 +213,12 @@ Shipped in `58fc7fb` and `373ec5b` (pushed to `main`, live on Pages):
       Regression test added.
 - [x] `tmp/` (screenshots) added to `.gitignore`.
 
+- [x] Stale cache after deploy (worked only in incognito): GitHub Pages sends `max-age=600`
+      and `index.html`/CSS/JS expired independently, so a cached `main.js` could import an
+      old `distances.js`. All asset URLs now carry `?v=<token>`; an **import map** in
+      `index.html` rewrites the bare `./x.js` module imports to the versioned URLs.
+      `scripts/bump-version.mjs` updates the token – run it before every release.
+
 Open:
 
 - [ ] (nice‑to‑have) `wheel.js` `setValue()` redundant `scrollTo` – cosmetic, see above.
